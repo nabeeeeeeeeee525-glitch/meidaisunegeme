@@ -352,28 +352,31 @@
       statusEl.textContent = "全部抜いてね…";
     }
 
-    async function gameClear() {
-      gameStarted = false;
-      stopTimer();
+async function gameClear() {
+  gameStarted = false;
+  stopTimer();
 
-      const finalTime = parseFloat(timerEl.textContent);
-      statusEl.textContent = `全部抜けた！スコア: ${finalTime.toFixed(2)}秒`;
+  const finalTime = parseFloat(timerEl.textContent);
+  statusEl.textContent = `全部抜けた！スコア: ${finalTime.toFixed(2)}秒`;
 
-      try {
-        await saveOnlineScore(finalTime);
-        const ranking = await loadRanking();
+  try {
+    await saveOnlineScore(finalTime);
+    const ranking = await loadRanking();
 
-        let text = " / オンラインランキング: ";
-        ranking.forEach((s, i) => {
-          text += `${i + 1}位 ${s.toFixed(2)}秒  `;
-        });
-
-        statusEl.textContent += text;
-      } catch (e) {
-        statusEl.textContent += " / ランキング取得に失敗しました";
-        console.error(e);
-      }
+    if (ranking.length === 0) {
+      statusEl.textContent += " / ランキング取得できませんでした";
+    } else {
+      let text = " / オンラインランキング: ";
+      ranking.forEach((s, i) => {
+        text += `${i + 1}位 ${s.toFixed(2)}秒  `;
+      });
+      statusEl.textContent += text;
     }
+  } catch (e) {
+    statusEl.textContent += " / ランキング取得に失敗しました";
+    console.error(e);
+  }
+}
 
     function gameOver() {
       gameStarted = false;
