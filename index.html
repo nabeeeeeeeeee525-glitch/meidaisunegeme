@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>明大すねゲーム</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      background: #f5f5f5;
+      margin: 0;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+    }
+
+    h1 { font-size: 24px; margin: 0; }
+
+    .ui {
+      display: flex;
+      gap: 16px;
+      align-items: center;
+    }
+
+    #timer {
+      font-size: 20px;
+      font-weight: bold;
+      min-width: 120px;
+    }
+
+    #startBtn {
+      padding: 6px 14px;
+      cursor: pointer;
+    }
+
+    #status {
+      font-size: 14px;
+      color: #555;
+      min-height: 1.2em;
+    }
+
+    .game-wrapper {
+      display: flex;
+      gap: 24px;
+      align-items: flex-start;
+    }
+
+    #legArea {
+      position: relative;
+      width: 400px;
+      height: 600px;
+      background: #ddd;
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    #legArea img.leg {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      pointer-events: none;
+    }
+
+    .hair {
+      position: absolute;
+      width: 40px;
+      height: 40px;
+      cursor: grab;
+      user-select: none;
+    }
+
+    .hair.dragging {
+      opacity: 0.7;
+      cursor: grabbing;
+    }
+
+    #trashArea {
+      width: 160px;
+      height: 160px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #fafafa;
+      border: 2px dashed #999;
+      position: relative;
+    }
+
+    #trashArea img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      pointer-events: none;
+    }
+
+    #trashArea.highlight {
+      border-color: #ff5555;
+      background: #ffecec;
+    }
+  </style>
+</head>
+<body>
+  <h1>すね毛抜きゲーム</h1>
+
+  <div class="ui">
+    <div id="timer">00.00 秒</div>
+    <button id="startBtn">スタート</button>
+    <div id="status"></div>
+  </div>
+
+  <div class="game-wrapper">
+    <div id="legArea">
+      <img class="leg" src="images/leg.png" alt="足">
+    </div>
+    <div id="trashArea">
+      <img src="images/trash.png" alt="ゴミ箱">
+    </div>
+  </div>
+
+  <script>
+    const HAIR_COUNT = 30;
+    const HAIR_IMAGES = [
+      "images/hair1.png",
+      "images/hair2.png",
+      "images/hair3.png"
+    ];
+
+ // 足画像に合わせた毛の配置範囲（上下2ゾーン）
+const HAIR_ZONES = [
+  {
+    // 上ゾーン（例：細め）
+    xMin: 120,
+    xMax: 300,
+    yMin: 20,
+    yMax: 380
+  },
+  {
+    // 下ゾーン（例：広め）
+    xMin: 160,
+    xMax: 280,
+    yMin: 280,
+    yMax: 580
+  }
+];
+
+
+    const legArea = document.getElementById("legArea");
+    const trashArea = document.getElementById("trashArea");
+    const timerEl = document.getElementById("timer");
+    const startBtn = document.getElementById("startBtn");
+    const statusEl = document.getElementById("status");
+
+    let hairs = [];
+    let draggingHair = null;
+    let offsetX = 0;
+    let offsetY = 0;
+
+    let startTime = null;
+    let timerId = null;
+    let gameStarted = false;
+    let remainingHairs = 0;
+
+    function startTimer() {
+      startTime = performance.now();
+      timerId = requestAnimationFrame(updateTimer);
+    }
+
+    function stopTimer() {
+      if (timerId) cancelAnimationFrame(timerId);
+      timerId = null;
+    }
+
+    function updateTimer() {
+      const now = performance.now();
+      const elapsed = (now - startTime) / 1000;
+      timerEl.textContent = elapsed.toFixed(2) + " 秒";
+      timerId = requestAnimationFrame(updateTimer);
+    }
+
+    function clearHairs() {
+      hairs.forEach(h => h.remove());
+      hairs = [];
+    }
+
+function spawnHairs() {
+  remainingHairs = HAIR_COUNT;
+
+  for (let i = 0; i < HAIR_COUNT; i++) {
+
+    // どちらのゾーンに生やすかランダムで決定
+    const zone = HAIR_ZONES[Math.floor(Math.random() * HAIR_ZONES.length)];
+
+    const img = document.createElement("img");
+    img.className = "hair";
+    img.src = HAIR_IMAGES[Math.floor(Math.random() * HAIR_IMAGES.length)];
+    img.draggable = false;
+
+    // ゾーン内でランダム配置
+    const x = zone.xMin + Math.random() * (zone.xMax - zone.xMin);
+    const y = zone.yMin + Math.random() * (zone.yMax - zone.yMin);
+
+    img.style.left = x + "px";
+    img.style.top = y + "px";
+
+    img.addEventListener("mousedown", onHairMouseDown);
+
+    legArea.appendChild(img);
+    hairs.push(img);
+  }
+}
+
+
+    function onHairMouseDown(e) {
+      if (!gameStarted) return;
+      draggingHair = e.currentTarget;
+      draggingHair.classList.add("dragging");
+
+      const rect = draggingHair.getBoundingClientRect();
+      offsetX = e.clientX - rect.left;
+      offsetY = e.clientY - rect.top;
+
+      document.addEventListener("mousemove", onMouseMove);
+      document.addEventListener("mouseup", onMouseUp);
+    }
+
+    function onMouseMove(e) {
+      if (!draggingHair) return;
+
+      const legRect = legArea.getBoundingClientRect();
+      const x = e.clientX - legRect.left - offsetX;
+      const y = e.clientY - legRect.top - offsetY;
+
+      draggingHair.style.left = x + "px";
+      draggingHair.style.top = y + "px";
+
+      const trashRect = trashArea.getBoundingClientRect();
+      if (
+        e.clientX >= trashRect.left &&
+        e.clientX <= trashRect.right &&
+        e.clientY >= trashRect.top &&
+        e.clientY <= trashRect.bottom
+      ) {
+        trashArea.classList.add("highlight");
+      } else {
+        trashArea.classList.remove("highlight");
+      }
+    }
+
+    function onMouseUp(e) {
+      if (!draggingHair) return;
+
+      const trashRect = trashArea.getBoundingClientRect();
+      const legRect = legArea.getBoundingClientRect();
+
+      const isInTrash =
+        e.clientX >= trashRect.left &&
+        e.clientX <= trashRect.right &&
+        e.clientY >= trashRect.top &&
+        e.clientY <= trashRect.bottom;
+
+      const isInLeg =
+        e.clientX >= legRect.left &&
+        e.clientX <= legRect.right &&
+        e.clientY >= legRect.top &&
+        e.clientY <= legRect.bottom;
+
+      if (isInTrash) {
+        draggingHair.remove();
+        remainingHairs--;
+        if (remainingHairs <= 0) gameClear();
+      } else if (!isInLeg) {
+        gameOver();
+      }
+
+      trashArea.classList.remove("highlight");
+      draggingHair.classList.remove("dragging");
+      draggingHair = null;
+
+      document.removeEventListener("mousemove", onMouseMove);
+      document.removeEventListener("mouseup", onMouseUp);
+    }
+
+    function resetGame() {
+      stopTimer();
+      timerEl.textContent = "00.00 秒";
+      statusEl.textContent = "";
+      gameStarted = false;
+      clearHairs();
+    }
+
+    function startGame() {
+      resetGame();
+      spawnHairs();
+      gameStarted = true;
+      startTimer();
+      statusEl.textContent = "全部抜いてね…";
+    }
+
+    function gameClear() {
+      gameStarted = false;
+      stopTimer();
+      statusEl.textContent = "全部抜けた！スコア: " + timerEl.textContent;
+    }
+
+    function gameOver() {
+      gameStarted = false;
+      stopTimer();
+      statusEl.textContent = "すね毛を落としてしまった。。床が汚れちゃいますよ。。。";
+    }
+
+    startBtn.addEventListener("click", startGame);
+  </script>
+</body>
+</html>
