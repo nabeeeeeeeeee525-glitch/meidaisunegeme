@@ -136,16 +136,16 @@
       get
     } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
-    // ★★★ ここを自分の firebaseConfig に差し替える ★★★
-    const firebaseConfig = {
+const firebaseConfig = {
   apiKey: "AIzaSyD-WJG3FUpNvqhzsj769I0-ILRR_im1OTo",
   authDomain: "maydie-sunegame.firebaseapp.com",
+  databaseURL: "https://maydie-sunegame-default-rtdb.asia-northeast1.firebasedatabase.app",
   projectId: "maydie-sunegame",
   storageBucket: "maydie-sunegame.firebasestorage.app",
   messagingSenderId: "790877000496",
   appId: "1:790877000496:web:445a5237f7562d891b6ef5",
   measurementId: "G-2CQGB0JTEJ"
-    };
+};
 
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
