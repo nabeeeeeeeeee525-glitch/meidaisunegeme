@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>明大すねゲーム</title>
+  <title>すね毛抜きゲーム</title>
   <style>
     body {
       font-family: sans-serif;
@@ -21,6 +21,7 @@
       display: flex;
       gap: 16px;
       align-items: center;
+      flex-wrap: wrap;
     }
 
     #timer {
@@ -38,6 +39,7 @@
       font-size: 14px;
       color: #555;
       min-height: 1.2em;
+      max-width: 600px;
     }
 
     .game-wrapper {
@@ -120,7 +122,35 @@
     </div>
   </div>
 
-  <script>
+  <!-- Firebase & ゲームロジック -->
+  <script type="module">
+    // ===== Firebase SDK 読み込み =====
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+    import {
+      getDatabase,
+      ref,
+      push,
+      query,
+      orderByChild,
+      limitToFirst,
+      get
+    } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+
+    // ★★★ ここを自分の firebaseConfig に差し替える ★★★
+    const firebaseConfig = {
+  apiKey: "AIzaSyD-WJG3FUpNvqhzsj769I0-ILRR_im1OTo",
+  authDomain: "maydie-sunegame.firebaseapp.com",
+  projectId: "maydie-sunegame",
+  storageBucket: "maydie-sunegame.firebasestorage.app",
+  messagingSenderId: "790877000496",
+  appId: "1:790877000496:web:445a5237f7562d891b6ef5",
+  measurementId: "G-2CQGB0JTEJ"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    // ===== ゲーム設定 =====
     const HAIR_COUNT = 30;
     const HAIR_IMAGES = [
       "images/hair1.png",
@@ -128,8 +158,8 @@
       "images/hair3.png"
     ];
 
- // 足画像に合わせた毛の配置範囲（上下2ゾーン）
-const HAIR_ZONES = [
+    // 足画像に合わせた毛の配置範囲（上下2ゾーン）
+    const HAIR_ZONES = [
   {
     // 上ゾーン（例：細め）
     xMin: 120,
@@ -145,7 +175,6 @@ const HAIR_ZONES = [
     yMax: 580
   }
 ];
-
 
     const legArea = document.getElementById("legArea");
     const trashArea = document.getElementById("trashArea");
@@ -163,6 +192,7 @@ const HAIR_ZONES = [
     let gameStarted = false;
     let remainingHairs = 0;
 
+    // ===== タイマー =====
     function startTimer() {
       startTime = performance.now();
       timerId = requestAnimationFrame(updateTimer);
@@ -180,39 +210,37 @@ const HAIR_ZONES = [
       timerId = requestAnimationFrame(updateTimer);
     }
 
+    // ===== 毛の生成・削除 =====
     function clearHairs() {
       hairs.forEach(h => h.remove());
       hairs = [];
     }
 
-function spawnHairs() {
-  remainingHairs = HAIR_COUNT;
+    function spawnHairs() {
+      remainingHairs = HAIR_COUNT;
 
-  for (let i = 0; i < HAIR_COUNT; i++) {
+      for (let i = 0; i < HAIR_COUNT; i++) {
+        const zone = HAIR_ZONES[Math.floor(Math.random() * HAIR_ZONES.length)];
 
-    // どちらのゾーンに生やすかランダムで決定
-    const zone = HAIR_ZONES[Math.floor(Math.random() * HAIR_ZONES.length)];
+        const img = document.createElement("img");
+        img.className = "hair";
+        img.src = HAIR_IMAGES[Math.floor(Math.random() * HAIR_IMAGES.length)];
+        img.draggable = false;
 
-    const img = document.createElement("img");
-    img.className = "hair";
-    img.src = HAIR_IMAGES[Math.floor(Math.random() * HAIR_IMAGES.length)];
-    img.draggable = false;
+        const x = zone.xMin + Math.random() * (zone.xMax - zone.xMin);
+        const y = zone.yMin + Math.random() * (zone.yMax - zone.yMin);
 
-    // ゾーン内でランダム配置
-    const x = zone.xMin + Math.random() * (zone.xMax - zone.xMin);
-    const y = zone.yMin + Math.random() * (zone.yMax - zone.yMin);
+        img.style.left = x + "px";
+        img.style.top = y + "px";
 
-    img.style.left = x + "px";
-    img.style.top = y + "px";
+        img.addEventListener("mousedown", onHairMouseDown);
 
-    img.addEventListener("mousedown", onHairMouseDown);
+        legArea.appendChild(img);
+        hairs.push(img);
+      }
+    }
 
-    legArea.appendChild(img);
-    hairs.push(img);
-  }
-}
-
-
+    // ===== ドラッグ処理 =====
     function onHairMouseDown(e) {
       if (!gameStarted) return;
       draggingHair = e.currentTarget;
@@ -283,6 +311,31 @@ function spawnHairs() {
       document.removeEventListener("mouseup", onMouseUp);
     }
 
+    // ===== オンラインスコア関連 =====
+    async function saveOnlineScore(time) {
+      const scoresRef = ref(db, "hairGameScores");
+      await push(scoresRef, {
+        time: time,
+        timestamp: Date.now()
+      });
+    }
+
+    async function loadRanking() {
+      const scoresRef = query(
+        ref(db, "hairGameScores"),
+        orderByChild("time"),
+        limitToFirst(5)
+      );
+
+      const snapshot = await get(scoresRef);
+      const list = [];
+      snapshot.forEach(child => {
+        list.push(child.val().time);
+      });
+      return list;
+    }
+
+    // ===== ゲーム制御 =====
     function resetGame() {
       stopTimer();
       timerEl.textContent = "00.00 秒";
@@ -299,10 +352,27 @@ function spawnHairs() {
       statusEl.textContent = "全部抜いてね…";
     }
 
-    function gameClear() {
+    async function gameClear() {
       gameStarted = false;
       stopTimer();
-      statusEl.textContent = "全部抜けた！スコア: " + timerEl.textContent;
+
+      const finalTime = parseFloat(timerEl.textContent);
+      statusEl.textContent = `全部抜けた！スコア: ${finalTime.toFixed(2)}秒`;
+
+      try {
+        await saveOnlineScore(finalTime);
+        const ranking = await loadRanking();
+
+        let text = " / オンラインランキング: ";
+        ranking.forEach((s, i) => {
+          text += `${i + 1}位 ${s.toFixed(2)}秒  `;
+        });
+
+        statusEl.textContent += text;
+      } catch (e) {
+        statusEl.textContent += " / ランキング取得に失敗しました";
+        console.error(e);
+      }
     }
 
     function gameOver() {
