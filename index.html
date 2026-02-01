@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>すね毛抜きゲーム</title>
+  <title>めいだいすね毛ーム</title>
   <style>
     body {
       font-family: sans-serif;
@@ -130,7 +130,7 @@
   </style>
 </head>
 <body>
-  <h1>すね毛抜きゲーム</h1>
+  <h1>めいだいすね毛ゲーム</h1>
 
   <!-- 名前入力欄 -->
   <div class="ui">
@@ -171,16 +171,16 @@
       get
     } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
-    const firebaseConfig = {
-      apiKey: "AIzaSyD-WJG3FUpNvqhzsj769I0-ILRR_im1OTo",
-      authDomain: "maydie-sunegame.firebaseapp.com",
-      databaseURL: "https://maydie-sunegame-default-rtdb.asia-northeast1.firebasedatabase.app",
-      projectId: "maydie-sunegame",
-      storageBucket: "maydie-sunegame.firebasestorage.app",
-      messagingSenderId: "790877000496",
-      appId: "1:790877000496:web:445a5237f7562d891b6ef5",
-      measurementId: "G-2CQGB0JTEJ"
-    };
+const firebaseConfig = {
+  apiKey: "AIzaSyD-WJG3FUpNvqhzsj769I0-ILRR_im1OTo",
+  authDomain: "maydie-sunegame.firebaseapp.com",
+  databaseURL: "https://maydie-sunegame-default-rtdb.firebaseio.com", // ← ここを修正！
+  projectId: "maydie-sunegame",
+  storageBucket: "maydie-sunegame.firebasestorage.app",
+  messagingSenderId: "790877000496",
+  appId: "1:790877000496:web:445a5237f7562d891b6ef5",
+  measurementId: "G-2CQGB0JTEJ"
+};
 
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
