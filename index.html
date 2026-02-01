@@ -102,10 +102,40 @@
       border-color: #ff5555;
       background: #ffecec;
     }
+
+    /* ランキング表示 */
+    #rankingArea {
+      margin-top: 20px;
+      background: white;
+      padding: 16px;
+      border-radius: 12px;
+      width: 360px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+    }
+
+    #rankingArea h2 {
+      margin: 0 0 10px 0;
+      font-size: 18px;
+    }
+
+    #rankingList {
+      padding-left: 20px;
+    }
+
+    #nameInput {
+      padding: 6px 10px;
+      font-size: 14px;
+      width: 200px;
+    }
   </style>
 </head>
 <body>
   <h1>すね毛抜きゲーム</h1>
+
+  <!-- 名前入力欄 -->
+  <div class="ui">
+    <input id="nameInput" type="text" placeholder="名前を入力" />
+  </div>
 
   <div class="ui">
     <div id="timer">00.00 秒</div>
@@ -122,9 +152,14 @@
     </div>
   </div>
 
+  <!-- ランキング表示 -->
+  <div id="rankingArea">
+    <h2>オンラインランキング（上位5名）</h2>
+    <ol id="rankingList"></ol>
+  </div>
+
   <!-- Firebase & ゲームロジック -->
   <script type="module">
-    // ===== Firebase SDK 読み込み =====
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
     import {
       getDatabase,
@@ -136,21 +171,20 @@
       get
     } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
-const firebaseConfig = {
-  apiKey: "AIzaSyD-WJG3FUpNvqhzsj769I0-ILRR_im1OTo",
-  authDomain: "maydie-sunegame.firebaseapp.com",
-  databaseURL: "https://maydie-sunegame-default-rtdb.asia-northeast1.firebasedatabase.app",
-  projectId: "maydie-sunegame",
-  storageBucket: "maydie-sunegame.firebasestorage.app",
-  messagingSenderId: "790877000496",
-  appId: "1:790877000496:web:445a5237f7562d891b6ef5",
-  measurementId: "G-2CQGB0JTEJ"
-};
+    const firebaseConfig = {
+      apiKey: "AIzaSyD-WJG3FUpNvqhzsj769I0-ILRR_im1OTo",
+      authDomain: "maydie-sunegame.firebaseapp.com",
+      databaseURL: "https://maydie-sunegame-default-rtdb.asia-northeast1.firebasedatabase.app",
+      projectId: "maydie-sunegame",
+      storageBucket: "maydie-sunegame.firebasestorage.app",
+      messagingSenderId: "790877000496",
+      appId: "1:790877000496:web:445a5237f7562d891b6ef5",
+      measurementId: "G-2CQGB0JTEJ"
+    };
 
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
 
-    // ===== ゲーム設定 =====
     const HAIR_COUNT = 30;
     const HAIR_IMAGES = [
       "images/hair1.png",
@@ -158,29 +192,17 @@ const firebaseConfig = {
       "images/hair3.png"
     ];
 
-    // 足画像に合わせた毛の配置範囲（上下2ゾーン）
     const HAIR_ZONES = [
-  {
-    // 上ゾーン（例：細め）
-    xMin: 120,
-    xMax: 300,
-    yMin: 20,
-    yMax: 380
-  },
-  {
-    // 下ゾーン（例：広め）
-    xMin: 160,
-    xMax: 280,
-    yMin: 280,
-    yMax: 580
-  }
-];
+      { xMin: 120, xMax: 300, yMin: 20,  yMax: 380 },
+      { xMin: 160, xMax: 280, yMin: 280, yMax: 580 }
+    ];
 
     const legArea = document.getElementById("legArea");
     const trashArea = document.getElementById("trashArea");
     const timerEl = document.getElementById("timer");
     const startBtn = document.getElementById("startBtn");
     const statusEl = document.getElementById("status");
+    const nameInput = document.getElementById("nameInput");
 
     let hairs = [];
     let draggingHair = null;
@@ -192,7 +214,6 @@ const firebaseConfig = {
     let gameStarted = false;
     let remainingHairs = 0;
 
-    // ===== タイマー =====
     function startTimer() {
       startTime = performance.now();
       timerId = requestAnimationFrame(updateTimer);
@@ -210,7 +231,6 @@ const firebaseConfig = {
       timerId = requestAnimationFrame(updateTimer);
     }
 
-    // ===== 毛の生成・削除 =====
     function clearHairs() {
       hairs.forEach(h => h.remove());
       hairs = [];
@@ -240,7 +260,6 @@ const firebaseConfig = {
       }
     }
 
-    // ===== ドラッグ処理 =====
     function onHairMouseDown(e) {
       if (!gameStarted) return;
       draggingHair = e.currentTarget;
@@ -311,10 +330,10 @@ const firebaseConfig = {
       document.removeEventListener("mouseup", onMouseUp);
     }
 
-    // ===== オンラインスコア関連 =====
-    async function saveOnlineScore(time) {
+    async function saveOnlineScore(name, time) {
       const scoresRef = ref(db, "hairGameScores");
       await push(scoresRef, {
+        name: name,
         time: time,
         timestamp: Date.now()
       });
@@ -330,12 +349,22 @@ const firebaseConfig = {
       const snapshot = await get(scoresRef);
       const list = [];
       snapshot.forEach(child => {
-        list.push(child.val().time);
+        list.push(child.val());
       });
       return list;
     }
 
-    // ===== ゲーム制御 =====
+    function renderRanking(list) {
+      const rankingList = document.getElementById("rankingList");
+      rankingList.innerHTML = "";
+
+      list.forEach((item, index) => {
+        const li = document.createElement("li");
+        li.textContent = `${index + 1}位: ${item.name} - ${item.time.toFixed(2)} 秒`;
+        rankingList.appendChild(li);
+      });
+    }
+
     function resetGame() {
       stopTimer();
       timerEl.textContent = "00.00 秒";
@@ -345,6 +374,12 @@ const firebaseConfig = {
     }
 
     function startGame() {
+      const name = nameInput.value.trim();
+      if (!name) {
+        alert("名前を入力してください");
+        return;
+      }
+
       resetGame();
       spawnHairs();
       gameStarted = true;
@@ -352,31 +387,24 @@ const firebaseConfig = {
       statusEl.textContent = "全部抜いてね…";
     }
 
-async function gameClear() {
-  gameStarted = false;
-  stopTimer();
+    async function gameClear() {
+      gameStarted = false;
+      stopTimer();
 
-  const finalTime = parseFloat(timerEl.textContent);
-  statusEl.textContent = `全部抜けた！スコア: ${finalTime.toFixed(2)}秒`;
+      const finalTime = parseFloat(timerEl.textContent);
+      const name = nameInput.value.trim();
 
-  try {
-    await saveOnlineScore(finalTime);
-    const ranking = await loadRanking();
+      statusEl.textContent = `全部抜けた！スコア: ${finalTime.toFixed(2)}秒`;
 
-    if (ranking.length === 0) {
-      statusEl.textContent += " / ランキング取得できませんでした";
-    } else {
-      let text = " / オンラインランキング: ";
-      ranking.forEach((s, i) => {
-        text += `${i + 1}位 ${s.toFixed(2)}秒  `;
-      });
-      statusEl.textContent += text;
+      try {
+        await saveOnlineScore(name, finalTime);
+        const ranking = await loadRanking();
+        renderRanking(ranking);
+      } catch (e) {
+        statusEl.textContent += " / ランキング取得に失敗しました";
+        console.error(e);
+      }
     }
-  } catch (e) {
-    statusEl.textContent += " / ランキング取得に失敗しました";
-    console.error(e);
-  }
-}
 
     function gameOver() {
       gameStarted = false;
@@ -385,6 +413,9 @@ async function gameClear() {
     }
 
     startBtn.addEventListener("click", startGame);
+
+    // ページ読み込み時にランキング表示
+    loadRanking().then(renderRanking);
   </script>
 </body>
 </html>
